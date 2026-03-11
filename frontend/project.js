@@ -1,0 +1,402 @@
+async function fetchData() {
+    const response = await fetch('/api/data');
+    const result = await response.json();
+    return result.items || [];
+}
+
+async function fetchHistory(id) {
+    const response = await fetch(`/api/history/${id}`);
+    return await response.json();
+}
+
+function normalizeStatus(name) {
+    if (!name) return "";
+    return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+function isStatusName(name, target) {
+    return normalizeStatus(name) === normalizeStatus(target);
+}
+
+function formatDuration(ms) {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `${days}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m`;
+    return `< 1m`;
+}
+
+function calculateStoryMetrics(story, history) {
+    const creation = new Date(story.created_date);
+    const sortedHistory = [...history].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+    let leadTime = null;
+    let cycleTime = 0;
+    let lastInProgressStart = null;
+
+    sortedHistory.forEach(entry => {
+        const entryDate = new Date(entry.created_at);
+        if (entry.values_diff && entry.values_diff.status) {
+            const statusTo = entry.values_diff.status[1];
+            const statusFrom = entry.values_diff.status[0];
+
+            if (isStatusName(statusTo, 'En Produccion') && !leadTime) {
+                leadTime = entryDate - creation;
+            }
+            if (isStatusName(statusTo, 'En Progreso')) {
+                lastInProgressStart = entryDate;
+            } else if (isStatusName(statusFrom, 'En Progreso') && lastInProgressStart) {
+                cycleTime += (entryDate - lastInProgressStart);
+                lastInProgressStart = null;
+            }
+        }
+    });
+
+    return { leadTime, cycleTime, lastInProgressStart };
+}
+
+
+const urlParams = new URLSearchParams(window.location.search);
+const projectName = urlParams.get('project');
+
+if (!projectName) {
+    window.location.href = '/';
+}
+
+// DOM Elements
+const projectNameDisplay = document.getElementById('projectNameDisplay');
+const backBtn = document.getElementById('backBtn');
+const listView = document.getElementById('listView');
+const historyView = document.getElementById('historyView');
+const stats = document.getElementById('stats');
+const historyBody = document.getElementById('historyBody');
+const historyStoryRef = document.getElementById('historyStoryRef');
+const historyStorySubject = document.getElementById('historyStorySubject');
+const logo = document.getElementById('logo');
+const totalTimeValue = document.getElementById('totalTimeValue');
+const timeInProgressValue = document.getElementById('timeInProgressValue');
+const historyMetrics = document.getElementById('historyMetrics');
+
+// Global (Project) Metrics Elements
+const startDateInput = document.getElementById('startDate');
+const endDateInput = document.getElementById('endDate');
+const calculateBtn = document.getElementById('calculateBtn');
+const projectMetricsResults = document.getElementById('projectMetricsResults');
+const metricsLoading = document.getElementById('metricsLoading');
+const projectLeadTime = document.getElementById('projectLeadTime');
+const projectCycleTime = document.getElementById('projectCycleTime');
+const projectWIP = document.getElementById('projectWIP');
+const projectThroughput = document.getElementById('projectThroughput');
+
+let currentData = [];
+let projectStories = [];
+
+projectNameDisplay.textContent = projectName;
+
+// Initialize dates
+const today = new Date();
+const sevenDaysAgo = new Date();
+sevenDaysAgo.setDate(today.getDate() - 7);
+startDateInput.value = sevenDaysAgo.toISOString().split('T')[0];
+endDateInput.value = today.toISOString().split('T')[0];
+
+async function init() {
+    try {
+        currentData = await fetchData();
+        projectStories = currentData.filter(s => String(s.project) === String(projectName));
+        stats.textContent = projectStories.length + ' User Stories';
+
+        // Initialize active filters from inputs
+        activeFilters.startDate = startDateInput.value;
+        activeFilters.endDate = endDateInput.value;
+
+        renderStories();
+    } catch (err) {
+        console.error('Failed to load project data', err);
+        listView.innerHTML = '<div class="empty-state">Error loading project data.</div>';
+    }
+}
+
+let metricCache = new Map();
+let activeFilters = {
+    title: '',
+    assigned: '',
+    startDate: '',
+    endDate: ''
+};
+
+function getFilteredStories() {
+    const start = activeFilters.startDate ? new Date(activeFilters.startDate) : null;
+    const end = activeFilters.endDate ? new Date(activeFilters.endDate) : null;
+    if (end) end.setHours(23, 59, 59, 999);
+
+    const filtered = projectStories.filter(story => {
+        // Date Filter
+        const created = new Date(story.created_date);
+        let excludeReason = null;
+
+        // Normalize comparison by checking if created is on or after start, and on or BEFORE end
+        if (start) {
+            const startCheck = new Date(start);
+            startCheck.setHours(0, 0, 0, 0);
+            if (created < startCheck) excludeReason = 'date_too_early';
+        }
+        if (end) {
+            const endCheck = new Date(end);
+            endCheck.setHours(23, 59, 59, 999);
+            if (created > endCheck) excludeReason = 'date_too_late';
+        }
+
+        // Text Filters
+        const matchesTitle = story.subject.toLowerCase().includes(activeFilters.title.toLowerCase());
+        const assignedTo = (story.assigned_to_extra_info && story.assigned_to_extra_info.full_name) ||
+            (story.assigned_to_extra && story.assigned_to_extra.full_name) ||
+            (story.assigned_to && story.assigned_to.full_name) ||
+            story.assigned_to_name ||
+            'Unassigned';
+        const matchesAssigned = assignedTo.toLowerCase().includes(activeFilters.assigned.toLowerCase());
+
+        const isMatch = matchesTitle && matchesAssigned;
+        return !excludeReason && isMatch;
+    });
+    return filtered;
+}
+
+function updateGlobalMetrics(filteredStories) {
+    let totalLeadTime = 0;
+    let leadTimeCount = 0;
+    let totalCycleTime = 0;
+    let cycleTimeCount = 0;
+    let throughputCount = 0;
+    let wipCount = 0;
+    const wipIds = [];
+    const throughputIds = [];
+
+    filteredStories.forEach(story => {
+        const metrics = metricCache.get(story.id);
+        const statusName = story.status_name ||
+            (story.status_extra_info && story.status_extra_info.name) ||
+            (story.status_extra && story.status_extra.name) ||
+            (story.status && story.status.name) || "";
+
+        if (isStatusName(statusName, 'En Produccion')) {
+            throughputCount++;
+            throughputIds.push(story.id);
+        }
+        if (isStatusName(statusName, 'En Progreso')) {
+            wipCount++;
+            wipIds.push(story.id);
+        }
+
+        if (metrics) {
+            if (metrics.leadTime && isStatusName(statusName, 'En Produccion')) {
+                totalLeadTime += metrics.leadTime;
+                leadTimeCount++;
+            }
+            const currentCycle = metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
+            if (currentCycle > 0) {
+                totalCycleTime += currentCycle;
+                cycleTimeCount++;
+            }
+        }
+    });
+
+    projectLeadTime.textContent = leadTimeCount > 0 ? formatDuration(totalLeadTime / leadTimeCount) : '--';
+    projectCycleTime.textContent = cycleTimeCount > 0 ? formatDuration(totalCycleTime / cycleTimeCount) : '--';
+    projectThroughput.textContent = throughputCount;
+    projectWIP.textContent = wipCount;
+}
+
+function renderStories() {
+    const filteredStories = getFilteredStories();
+    updateGlobalMetrics(filteredStories);
+
+    if (projectStories.length === 0) {
+        listView.innerHTML = `<div class="empty-state">No stories found for project ${projectName}.</div>`;
+        return;
+    }
+
+    listView.innerHTML = `
+        <table class="stories-table">
+            <thead>
+                <tr>
+                    <th class="col-id">ID</th>
+                    <th class="col-title">
+                        <div class="header-filter">
+                            <span>User Story Title</span>
+                            <input type="text" id="titleFilter" class="column-filter" placeholder="Filter title..." value="${activeFilters.title}">
+                        </div>
+                    </th>
+                    <th class="col-assigned">
+                        <div class="header-filter">
+                            <span>Assigned to</span>
+                            <input type="text" id="assignedFilter" class="column-filter" placeholder="Filter assigned..." value="${activeFilters.assigned}">
+                        </div>
+                    </th>
+                    <th class="col-points">Points</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-metric">Process Time</th>
+                    <th class="col-metric">Time in Progress</th>
+                </tr>
+            </thead>
+            <tbody id="storiesBody">
+                ${filteredStories.map((story, idx) => {
+        if (idx === 0) console.log('DEBUG US Data:', story);
+
+        const assignedTo = story.assigned_to_name ||
+            (story.assigned_to_extra_info && story.assigned_to_extra_info.full_name) ||
+            (story.assigned_to_extra && story.assigned_to_extra.full_name) ||
+            (story.assigned_to && story.assigned_to.full_name) ||
+            'Unassigned';
+
+        const statusName = story.status_name ||
+            (story.status_extra_info && story.status_extra_info.name) ||
+            (story.status_extra && story.status_extra.name) ||
+            (story.status && story.status.name) ||
+            'Unknown';
+
+        const metrics = metricCache.get(story.id);
+
+        return `
+                        <tr class="story-row" data-id="${story.id}" data-ref="${story.ref}" data-subject="${story.subject.replace(/"/g, '&quot;')}" data-created="${story.created_date}">
+                            <td><span class="story-ref">#${story.ref}</span></td>
+                            <td><div class="story-subject">${story.subject}</div></td>
+                            <td><span class="tag">${assignedTo}</span></td>
+                            <td style="text-align: center;">${story.total_points || 0}</td>
+                            <td><span class="tag status-tag">${statusName}</span></td>
+                            <td id="process-time-${story.id}">
+                                ${metrics ? formatDuration(metrics.leadTime) : '<div class="loading-cell"><div class="loader"></div><span>Fetching...</span></div>'}
+                            </td>
+                            <td id="in-progress-${story.id}">
+                                ${metrics ? formatDuration(metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Fetching...</span></div>'}
+                            </td>
+                        </tr>
+                    `;
+    }).join('')}
+            </tbody>
+        </table>
+    `;
+
+    // Re-attach event listeners for filters
+    document.getElementById('titleFilter').addEventListener('input', (e) => {
+        activeFilters.title = e.target.value;
+        renderStories();
+    });
+    document.getElementById('assignedFilter').addEventListener('input', (e) => {
+        activeFilters.assigned = e.target.value;
+        renderStories();
+    });
+
+    // Re-attach click listeners for rows (history view)
+    document.querySelectorAll('.story-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            viewHistory(
+                row.getAttribute('data-id'),
+                row.getAttribute('data-ref'),
+                row.getAttribute('data-subject'),
+                row.getAttribute('data-created')
+            );
+        });
+    });
+
+    // Start background fetching for metrics if not cached
+    filteredStories.forEach(story => {
+        if (!metricCache.has(story.id)) {
+            fetchRowMetrics(story);
+        }
+    });
+}
+
+async function fetchRowMetrics(story) {
+    try {
+        const history = await fetchHistory(story.id);
+        const metrics = calculateStoryMetrics({ created_date: story.created_date }, history);
+        metricCache.set(story.id, metrics);
+
+        // Update the cells directly if they exist in the DOM
+        const processCell = document.getElementById(`process-time-${story.id}`);
+        const progressCell = document.getElementById(`in-progress-${story.id}`);
+
+        if (processCell) {
+            processCell.textContent = metrics.leadTime ? formatDuration(metrics.leadTime) : 'N/A';
+        }
+        if (progressCell) {
+            const currentCycle = metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
+            progressCell.textContent = currentCycle > 0 ? formatDuration(currentCycle) : '0h';
+        }
+
+        // Update global metrics since we have new data
+        updateGlobalMetrics(getFilteredStories());
+    } catch (err) {
+        console.error(`Failed to fetch metrics for story ${story.id}`, err);
+        const processCell = document.getElementById(`process-time-${story.id}`);
+        const progressCell = document.getElementById(`in-progress-${story.id}`);
+        if (processCell) processCell.textContent = 'Error';
+        if (progressCell) progressCell.textContent = 'Error';
+    }
+}
+
+async function viewHistory(id, ref, subject, createdDate) {
+    historyView.classList.remove('hidden');
+    historyStoryRef.textContent = '#' + ref;
+    historyStorySubject.textContent = subject;
+    historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 3rem;"><div class="loader"></div><br><br>Loading history...</td></tr>';
+    historyMetrics.classList.add('hidden');
+
+    try {
+        const history = await fetchHistory(id);
+        const metrics = calculateStoryMetrics({ created_date: createdDate }, history);
+
+        totalTimeValue.textContent = metrics.leadTime ? formatDuration(metrics.leadTime) : 'N/A';
+        const currentCycle = metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
+        timeInProgressValue.textContent = currentCycle > 0 ? formatDuration(currentCycle) : '0h';
+        historyMetrics.classList.remove('hidden');
+
+        const rows = history.filter(entry => entry.values_diff).map(entry => {
+            const diffs = [];
+            Object.keys(entry.values_diff).forEach(key => {
+                const diff = entry.values_diff[key];
+                diffs.push(`
+                    <tr>
+                        <td><span class="tag">${key}</span></td>
+                        <td class="diff-from">${Array.isArray(diff) ? (diff[0] || '-') : '-'}</td>
+                        <td class="diff-to">${Array.isArray(diff) ? (diff[1] || diff) : diff}</td>
+                        <td>${new Date(entry.created_at).toLocaleString()}</td>
+                    </tr>
+                `);
+            });
+            return diffs.join('');
+        });
+
+        historyBody.innerHTML = rows.length > 0 ? rows.join('') : '<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--text-secondary);">No relevant history found.</td></tr>';
+        historyView.scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+        historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--danger);">Error loading history.</td></tr>';
+    }
+}
+
+// Event Listeners
+backBtn.addEventListener('click', () => window.location.href = '/');
+logo.addEventListener('click', () => window.location.href = '/');
+
+startDateInput.addEventListener('change', (e) => {
+    activeFilters.startDate = e.target.value;
+    renderStories();
+});
+
+endDateInput.addEventListener('change', (e) => {
+    activeFilters.endDate = e.target.value;
+    renderStories();
+});
+
+calculateBtn.addEventListener('click', () => {
+    activeFilters.startDate = startDateInput.value;
+    activeFilters.endDate = endDateInput.value;
+    renderStories();
+});
+
+init();

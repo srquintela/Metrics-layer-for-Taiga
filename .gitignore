@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+*.log
+.env
+dist/
+build/
+.vscode/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+config.json

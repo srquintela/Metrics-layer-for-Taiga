@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Details - Taiga Metrics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <header>
+        <div class="header-content">
+            <h1 id="logo" onclick="window.location.href='index.html'" style="cursor: pointer;">Taiga Metrics</h1>
+            <nav>
+                <a href="index.html" class="active">Dashboard</a>
+                <a href="settings.html">Settings</a>
+            </nav>
+            <div class="header-actions">
+                <button id="backBtn" class="back-btn">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd"
+                            d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z" />
+                    </svg>
+                    <span>Back</span>
+                </button>
+                <div id="stats" class="stats">Loading...</div>
+            </div>
+        </div>
+    </header>
+
+    <main id="main">
+        <div id="projectMetricsBar" class="metrics-bar">
+            <div class="filter-form">
+                <h2 id="projectNameDisplay" style="margin: 0; color: var(--accent-color);">Project Name</h2>
+                <div class="input-group">
+                    <label for="startDate">Start Date</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="input-group">
+                    <label for="endDate">End Date</label>
+                    <input type="date" id="endDate">
+                </div>
+                <button id="calculateBtn" class="calculate-btn">Calculate Metrics</button>
+            </div>
+
+            <div id="projectMetricsResults" class="global-metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">LEAD TIME</div>
+                    <div id="projectLeadTime" class="metric-value">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">CYCLE TIME</div>
+                    <div id="projectCycleTime" class="metric-value">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">THROUGHPUT</div>
+                    <div id="projectThroughput" class="metric-value">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">WIP</div>
+                    <div id="projectWIP" class="metric-value">--</div>
+                </div>
+            </div>
+            <div id="metricsLoading" class="metrics-loading hidden">
+                <div class="loader"></div>
+                <span>Analyzing stories...</span>
+            </div>
+        </div>
+
+        <div id="listView" class="table-container">
+            <div class="empty-state">Loading stories...</div>
+        </div>
+
+        <!-- History Modal/Section -->
+        <div id="historyView" class="history-container hidden" style="margin-top: 2rem;">
+            <div class="history-title">
+                <div id="historyStoryRef" class="story-ref">REF</div>
+                <h2 id="historyStorySubject">Subject</h2>
+            </div>
+
+            <div id="historyMetrics" class="metrics-grid hidden">
+                <div class="metric-card">
+                    <div class="metric-label">Total Time of Process</div>
+                    <div id="totalTimeValue" class="metric-value">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Time In Progress</div>
+                    <div id="timeInProgressValue" class="metric-value">--</div>
+                </div>
+            </div>
+
+            <div class="history-table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Status From</th>
+                            <th>Status To</th>
+                            <th>Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    <script type="module" src="./project.js"></script>
+</body>
+
+</html>
