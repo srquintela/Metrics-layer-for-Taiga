@@ -14,7 +14,9 @@ def load_config():
     return {
         "taiga_domain": "taiga.bdp.com.bo",
         "username": "",
-        "auth_token": ""
+        "auth_token": "",
+        "user_id": 7,
+        "project_ids": [40, 16, 15, 14, 26, 11, 35]
     }
 
 def fetch_and_import():
@@ -30,39 +32,44 @@ def fetch_and_import():
     # Taiga's /api/v1/projects?member=... needs an ID. 
     # If we don't have it, we might need to fetch userInfo first.
     
-    user_id = None
+    user_id = config.get('user_id', 7)
+    project_ids = config.get('project_ids', [40, 16, 15, 14, 26, 11, 35])
+    
     try:
-        print(f"Fetching user info from {domain}...")
-        user_url = f"https://{domain}/api/v1/users/me"
+        print(f"Fetching user info from {domain} (ID: {user_id})...")
+        user_url = f"https://{domain}/api/v1/users/{user_id}"
         user_res = requests.get(user_url, headers=headers, verify=False)
         user_res.raise_for_status()
         user_info = user_res.json()
-        user_id = user_info['id']
-        print(f"Authenticated as {user_info['full_name']} (ID: {user_id})")
+        print(f"Running for user: {user_info.get('full_name', 'Unknown')} (ID: {user_id})")
     except Exception as e:
-        print(f"Warning: Could not fetch user info: {e}. Attempting to proceed...")
+        print(f"Warning: Could not fetch user info for ID {user_id}: {e}. Attempting to proceed with configured project IDs...")
 
-    projects_url = f"https://{domain}/api/v1/projects"
-    if user_id:
-        projects_url += f"?member={user_id}"
-        
     all_stories = []
     
+    project_names = {}
     try:
-        print(f"Fetching projects: {projects_url}")
-        proj_response = requests.get(projects_url, headers=headers, verify=False)
-        proj_response.raise_for_status()
-        projects = proj_response.json()
+        # We'll fetch project names for our target list
+        for pid in project_ids:
+            try:
+                p_url = f"https://{domain}/api/v1/projects/{pid}"
+                p_res = requests.get(p_url, headers=headers, verify=False)
+                p_res.raise_for_status()
+                p_data = p_res.json()
+                project_names[pid] = p_data['name']
+            except Exception as e:
+                print(f"  Warning: Could not fetch project {pid}: {e}")
         
-        project_ids = [p['id'] for p in projects]
-        project_names = {p['id']: p['name'] for p in projects}
-        print(f"Discovered {len(project_ids)} projects: {list(project_names.values())}")
+        print(f"Targeting {len(project_names)} projects: {list(project_names.values())}")
         
     except Exception as e:
-        print(f"Error fetching projects: {e}")
+        print(f"Error initializing projects: {e}")
         return
 
     for project_id in project_ids:
+        if project_id not in project_names:
+            continue
+            
         # Fetch status names for mapping
         status_map = {}
         try:

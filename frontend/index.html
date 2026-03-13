@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taiga Metrics Dashboard</title>
+    <title>Capa de Metricas para Taiga</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
@@ -12,10 +12,10 @@
 <body>
     <header>
         <div class="header-content">
-            <h1 id="logo" onclick="window.location.href='index.html'" style="cursor: pointer;">Taiga Metrics</h1>
+            <h1 id="logo" onclick="window.location.href='index.html'" style="cursor: pointer;">Taiga Metricas</h1>
             <nav>
                 <a href="index.html" class="active">Dashboard</a>
-                <a href="settings.html">Settings</a>
+                <a href="settings.html">Configuracion</a>
             </nav>
             <div class="header-actions">
                 <button id="refreshBtn" class="refresh-btn">
@@ -24,16 +24,16 @@
                         <path
                             d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
                     </svg>
-                    Refresh
+                    Actualizar
                 </button>
-                <div id="stats" class="stats">Loading projects...</div>
+                <div id="stats" class="stats">Cargando proyectos...</div>
             </div>
         </div>
     </header>
 
     <main id="main">
         <div id="projectView" class="grid projects-grid">
-            <div class="empty-state">Loading projects...</div>
+            <div class="empty-state">Cargando proyectos...</div>
         </div>
     </main>
     <script type="module" src="./index.js"></script>

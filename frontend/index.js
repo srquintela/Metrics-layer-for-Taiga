@@ -18,10 +18,10 @@ async function updateProjects() {
         const stories = await fetchData();
         const projects = [...new Set(stories.map(s => s.project))].sort((a, b) => String(a).localeCompare(String(b)));
 
-        stats.textContent = projects.length + ' Projects';
+        stats.textContent = projects.length + ' Proyectos';
 
         if (projects.length === 0) {
-            projectView.innerHTML = '<div class="empty-state">Waiting for data from Python script...</div>';
+            projectView.innerHTML = '<div class="empty-state">Esperando datos del script de Python...</div>';
             return;
         }
 
@@ -33,7 +33,7 @@ async function updateProjects() {
                 <div class="project-card" data-project="${projectStr}">
                     <div class="project-icon">${initial}</div>
                     <div class="project-name">${projectStr}</div>
-                    <div class="project-stats">${storyCount} User Stories</div>
+                    <div class="project-stats">${storyCount} Historias de Usuario</div>
                 </div>
             `;
         }).join('');
@@ -46,8 +46,8 @@ async function updateProjects() {
         });
 
     } catch (err) {
-        console.error('Failed to fetch projects', err);
-        projectView.innerHTML = '<div class="empty-state">Error loading data. Is the server running?</div>';
+        console.error('Error al cargar proyectos', err);
+        projectView.innerHTML = '<div class="empty-state">Error al cargar datos. ¿Está funcionando el servidor?</div>';
     } finally {
         refreshBtn.classList.remove('spinning');
         refreshBtn.disabled = false;

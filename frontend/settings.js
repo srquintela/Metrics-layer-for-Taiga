@@ -7,21 +7,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     const statusBox = document.getElementById('status-message');
 
     let currentAuthToken = '';
+    let currentUserId = 7;
 
     // Load current settings
     try {
         const response = await fetch('/api/settings');
         const settings = await response.json();
-        
+
         domainInput.value = settings.taiga_domain || '';
         usernameInput.value = settings.username || '';
         currentAuthToken = settings.auth_token || '';
-        
+        currentUserId = settings.user_id || 7;
+
         if (currentAuthToken) {
-            passwordInput.placeholder = '•••••••• (Token stored)';
+            passwordInput.placeholder = '•••••••• (Token guardado)';
         }
     } catch (e) {
-        console.error('Error loading settings:', e);
+        console.error('Error al cargar configuración:', e);
     }
 
     function showStatus(message, type) {
@@ -36,11 +38,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         const password = passwordInput.value;
 
         if (!domain || !username || !password) {
-            showStatus('Please fill in all fields to test connection.', 'error');
+            showStatus('Por favor, complete todos los campos para probar la conexión.', 'error');
             return;
         }
 
-        showStatus('Testing connection...', 'info');
+        showStatus('Probar conexión...', 'info');
         testBtn.disabled = true;
 
         try {
@@ -53,13 +55,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await response.json();
 
             if (response.ok && result.status === 'success') {
-                showStatus(`Success! Connected as ${result.user.full_name}`, 'success');
+                showStatus(`Conectado como ${result.user.full_name}`, 'success');
                 currentAuthToken = result.user.auth_token;
+                currentUserId = result.user.id;
             } else {
-                showStatus(`Connection failed: ${result.message}`, 'error');
+                showStatus(`Conexión fallida: ${result.message}`, 'error');
             }
         } catch (e) {
-            showStatus(`Error connecting to server: ${e.message}`, 'error');
+            showStatus(`Error al conectar al servidor: ${e.message}`, 'error');
         } finally {
             testBtn.disabled = false;
         }
@@ -67,14 +70,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const domain = domainInput.value.trim();
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
 
         // If password is provided, we should probably validate it first to get a token
         if (password) {
-            showStatus('Validating and saving...', 'info');
+            showStatus('Validando y guardando...', 'info');
             try {
                 const authRes = await fetch('/api/auth/validate', {
                     method: 'POST',
@@ -85,18 +88,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const authResult = await authRes.json();
                 if (authRes.ok && authResult.status === 'success') {
                     currentAuthToken = authResult.user.auth_token;
+                    currentUserId = authResult.user.id;
                 } else {
-                    showStatus(`Validation failed: ${authResult.message}. Settings not saved.`, 'error');
+                    showStatus(`Validacion fallida: ${authResult.message}. Config no guardada.`, 'error');
                     return;
                 }
             } catch (e) {
-                showStatus(`Error validating credentials: ${e.message}`, 'error');
+                showStatus(`Error al validar credenciales: ${e.message}`, 'error');
                 return;
             }
         }
 
         if (!currentAuthToken) {
-            showStatus('Token missing. Please provide a password to authenticate.', 'error');
+            showStatus('No hay Token. Por favor, ingrese una contraseña para autenticarse.', 'error');
             return;
         }
 
@@ -107,20 +111,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 body: JSON.stringify({
                     taiga_domain: domain,
                     username: username,
-                    auth_token: currentAuthToken
+                    auth_token: currentAuthToken,
+                    user_id: currentUserId
                 })
             });
 
             if (saveRes.ok) {
-                showStatus('Settings saved successfully!', 'success');
+                showStatus('Configuración guardada correctamente!', 'success');
                 passwordInput.value = '';
-                passwordInput.placeholder = '•••••••• (Token stored)';
+                passwordInput.placeholder = '•••••••• (Token guardado)';
             } else {
                 const error = await saveRes.json();
-                showStatus(`Failed to save settings: ${error.message}`, 'error');
+                showStatus(`Error al guardar configuración: ${error.message}`, 'error');
             }
         } catch (e) {
-            showStatus(`Error saving settings: ${e.message}`, 'error');
+            showStatus(`Error al guardar configuración: ${e.message}`, 'error');
         }
     });
 });

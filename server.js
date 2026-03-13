@@ -16,7 +16,7 @@ function readConfig() {
     } catch (e) {
         console.error('Error reading config:', e);
     }
-    return { taiga_domain: 'taiga.bdp.com.bo', username: '', auth_token: '' };
+    return { taiga_domain: 'taiga.bdp.com.bo', username: '', auth_token: '', user_id: 7 };
 }
 
 // Helper to write config
@@ -73,6 +73,7 @@ app.post('/api/settings', (req, res) => {
     config.taiga_domain = newSettings.taiga_domain || config.taiga_domain;
     config.username = newSettings.username || config.username;
     config.auth_token = newSettings.auth_token || config.auth_token;
+    config.user_id = newSettings.user_id || config.user_id || 7;
     
     if (writeConfig(config)) {
         res.json({ status: 'success', config });

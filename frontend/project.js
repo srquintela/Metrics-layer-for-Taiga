@@ -107,7 +107,7 @@ async function init() {
     try {
         currentData = await fetchData();
         projectStories = currentData.filter(s => String(s.project) === String(projectName));
-        stats.textContent = projectStories.length + ' User Stories';
+        stats.textContent = projectStories.length + ' Historias de Usuario';
 
         // Initialize active filters from inputs
         activeFilters.startDate = startDateInput.value;
@@ -115,8 +115,8 @@ async function init() {
 
         renderStories();
     } catch (err) {
-        console.error('Failed to load project data', err);
-        listView.innerHTML = '<div class="empty-state">Error loading project data.</div>';
+        console.error('Error al cargar datos del proyecto', err);
+        listView.innerHTML = '<div class="empty-state">Error al cargar datos del proyecto.</div>';
     }
 }
 
@@ -156,7 +156,7 @@ function getFilteredStories() {
             (story.assigned_to_extra && story.assigned_to_extra.full_name) ||
             (story.assigned_to && story.assigned_to.full_name) ||
             story.assigned_to_name ||
-            'Unassigned';
+            'No asignada';
         const matchesAssigned = assignedTo.toLowerCase().includes(activeFilters.assigned.toLowerCase());
 
         const isMatch = matchesTitle && matchesAssigned;
@@ -215,7 +215,7 @@ function renderStories() {
     updateGlobalMetrics(filteredStories);
 
     if (projectStories.length === 0) {
-        listView.innerHTML = `<div class="empty-state">No stories found for project ${projectName}.</div>`;
+        listView.innerHTML = `<div class="empty-state"> No hay Historias de Usuario en este proyecto ${projectName}.</div>`;
         return;
     }
 
@@ -226,20 +226,20 @@ function renderStories() {
                     <th class="col-id">ID</th>
                     <th class="col-title">
                         <div class="header-filter">
-                            <span>User Story Title</span>
-                            <input type="text" id="titleFilter" class="column-filter" placeholder="Filter title..." value="${activeFilters.title}">
+                            <span>Titulo de la Historia de Usuario</span>
+                            <input type="text" id="titleFilter" class="column-filter" placeholder="Filtrar por titulo..." value="${activeFilters.title}">
                         </div>
                     </th>
                     <th class="col-assigned">
                         <div class="header-filter">
-                            <span>Assigned to</span>
-                            <input type="text" id="assignedFilter" class="column-filter" placeholder="Filter assigned..." value="${activeFilters.assigned}">
+                            <span>Asignado a</span>
+                            <input type="text" id="assignedFilter" class="column-filter" placeholder="Filtrar por asignado..." value="${activeFilters.assigned}">
                         </div>
                     </th>
-                    <th class="col-points">Points</th>
+                    <th class="col-points">Puntos</th>
                     <th class="col-status">Status</th>
-                    <th class="col-metric">Process Time</th>
-                    <th class="col-metric">Time in Progress</th>
+                    <th class="col-metric">Tiempo de Proceso</th>
+                    <th class="col-metric">Tiempo en Progreso</th>
                 </tr>
             </thead>
             <tbody id="storiesBody">
@@ -250,7 +250,7 @@ function renderStories() {
             (story.assigned_to_extra_info && story.assigned_to_extra_info.full_name) ||
             (story.assigned_to_extra && story.assigned_to_extra.full_name) ||
             (story.assigned_to && story.assigned_to.full_name) ||
-            'Unassigned';
+            'No asignada';
 
         const statusName = story.status_name ||
             (story.status_extra_info && story.status_extra_info.name) ||
@@ -268,10 +268,10 @@ function renderStories() {
                             <td style="text-align: center;">${story.total_points || 0}</td>
                             <td><span class="tag status-tag">${statusName}</span></td>
                             <td id="process-time-${story.id}">
-                                ${metrics ? formatDuration(metrics.leadTime) : '<div class="loading-cell"><div class="loader"></div><span>Fetching...</span></div>'}
+                                ${metrics ? formatDuration(metrics.leadTime) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
                             </td>
                             <td id="in-progress-${story.id}">
-                                ${metrics ? formatDuration(metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Fetching...</span></div>'}
+                                ${metrics ? formatDuration(metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
                             </td>
                         </tr>
                     `;
@@ -332,7 +332,7 @@ async function fetchRowMetrics(story) {
         // Update global metrics since we have new data
         updateGlobalMetrics(getFilteredStories());
     } catch (err) {
-        console.error(`Failed to fetch metrics for story ${story.id}`, err);
+        console.error(`Error al obtener metricas de la historia ${story.id}`, err);
         const processCell = document.getElementById(`process-time-${story.id}`);
         const progressCell = document.getElementById(`in-progress-${story.id}`);
         if (processCell) processCell.textContent = 'Error';
@@ -344,7 +344,7 @@ async function viewHistory(id, ref, subject, createdDate) {
     historyView.classList.remove('hidden');
     historyStoryRef.textContent = '#' + ref;
     historyStorySubject.textContent = subject;
-    historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 3rem;"><div class="loader"></div><br><br>Loading history...</td></tr>';
+    historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 3rem;"><div class="loader"></div><br><br>Cargando historial...</td></tr>';
     historyMetrics.classList.add('hidden');
 
     try {
@@ -372,10 +372,10 @@ async function viewHistory(id, ref, subject, createdDate) {
             return diffs.join('');
         });
 
-        historyBody.innerHTML = rows.length > 0 ? rows.join('') : '<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--text-secondary);">No relevant history found.</td></tr>';
+        historyBody.innerHTML = rows.length > 0 ? rows.join('') : '<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--text-secondary);">No se encontro historial relevante.</td></tr>';
         historyView.scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
-        historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--danger);">Error loading history.</td></tr>';
+        historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--danger);">Error al cargar historial.</td></tr>';
     }
 }
 

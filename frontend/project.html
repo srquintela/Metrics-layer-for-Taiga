@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Details - Taiga Metrics</title>
+    <title>Historias de Usuario en Proyecto</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
@@ -12,10 +12,10 @@
 <body>
     <header>
         <div class="header-content">
-            <h1 id="logo" onclick="window.location.href='index.html'" style="cursor: pointer;">Taiga Metrics</h1>
+            <h1 id="logo" onclick="window.location.href='index.html'" style="cursor: pointer;">Taiga Metricas</h1>
             <nav>
                 <a href="index.html" class="active">Dashboard</a>
-                <a href="settings.html">Settings</a>
+                <a href="settings.html">Configuracion</a>
             </nav>
             <div class="header-actions">
                 <button id="backBtn" class="back-btn">
@@ -23,9 +23,9 @@
                         <path fill-rule="evenodd"
                             d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z" />
                     </svg>
-                    <span>Back</span>
+                    <span>Atras</span>
                 </button>
-                <div id="stats" class="stats">Loading...</div>
+                <div id="stats" class="stats">Cargando...</div>
             </div>
         </div>
     </header>
@@ -33,25 +33,25 @@
     <main id="main">
         <div id="projectMetricsBar" class="metrics-bar">
             <div class="filter-form">
-                <h2 id="projectNameDisplay" style="margin: 0; color: var(--accent-color);">Project Name</h2>
+                <h2 id="projectNameDisplay" style="margin: 0; color: var(--accent-color);">Nombre del Proyecto</h2>
                 <div class="input-group">
-                    <label for="startDate">Start Date</label>
+                    <label for="startDate">Creada desde</label>
                     <input type="date" id="startDate">
                 </div>
                 <div class="input-group">
-                    <label for="endDate">End Date</label>
+                    <label for="endDate">En Prod hasta</label>
                     <input type="date" id="endDate">
                 </div>
-                <button id="calculateBtn" class="calculate-btn">Calculate Metrics</button>
+                <button id="calculateBtn" class="calculate-btn">Calcular</button>
             </div>
 
             <div id="projectMetricsResults" class="global-metrics-grid">
                 <div class="metric-card">
-                    <div class="metric-label">LEAD TIME</div>
+                    <div class="metric-label">TIEMPO DE ENTREGA</div>
                     <div id="projectLeadTime" class="metric-value">--</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-label">CYCLE TIME</div>
+                    <div class="metric-label">TIEMPO DE CICLO</div>
                     <div id="projectCycleTime" class="metric-value">--</div>
                 </div>
                 <div class="metric-card">
@@ -65,28 +65,28 @@
             </div>
             <div id="metricsLoading" class="metrics-loading hidden">
                 <div class="loader"></div>
-                <span>Analyzing stories...</span>
+                <span>Analizando historias...</span>
             </div>
         </div>
 
         <div id="listView" class="table-container">
-            <div class="empty-state">Loading stories...</div>
+            <div class="empty-state">Cargando historias...</div>
         </div>
 
         <!-- History Modal/Section -->
         <div id="historyView" class="history-container hidden" style="margin-top: 2rem;">
             <div class="history-title">
                 <div id="historyStoryRef" class="story-ref">REF</div>
-                <h2 id="historyStorySubject">Subject</h2>
+                <h2 id="historyStorySubject">Titulo</h2>
             </div>
 
             <div id="historyMetrics" class="metrics-grid hidden">
                 <div class="metric-card">
-                    <div class="metric-label">Total Time of Process</div>
+                    <div class="metric-label">Tiempo Total de Proceso</div>
                     <div id="totalTimeValue" class="metric-value">--</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-label">Time In Progress</div>
+                    <div class="metric-label">Tiempo en Progreso</div>
                     <div id="timeInProgressValue" class="metric-value">--</div>
                 </div>
             </div>
@@ -95,10 +95,10 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Key</th>
-                            <th>Status From</th>
-                            <th>Status To</th>
-                            <th>Created At</th>
+                            <th>Tipo de Cambio</th>
+                            <th>De</th>
+                            <th>A</th>
+                            <th>Ocurrido en</th>
                         </tr>
                     </thead>
                     <tbody id="historyBody">
