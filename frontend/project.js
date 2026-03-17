@@ -15,7 +15,20 @@ function normalizeStatus(name) {
 }
 
 function isStatusName(name, target) {
-    return normalizeStatus(name) === normalizeStatus(target);
+    const normalizedName = normalizeStatus(name);
+    const normalizedTarget = normalizeStatus(target);
+    
+    if (normalizedName === normalizedTarget) return true;
+    
+    // Status Aliases
+    if (normalizedTarget === normalizeStatus('En Progreso')) {
+        return normalizedName === normalizeStatus('In Progress');
+    }
+    if (normalizedTarget === normalizeStatus('En Produccion')) {
+        return normalizedName === normalizeStatus('Hecho') || normalizedName === normalizeStatus('Done');
+    }
+    
+    return false;
 }
 
 function formatDuration(ms) {
