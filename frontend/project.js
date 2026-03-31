@@ -25,7 +25,10 @@ function isStatusName(name, target) {
         return normalizedName === normalizeStatus('In Progress');
     }
     if (normalizedTarget === normalizeStatus('En Produccion')) {
-        return normalizedName === normalizeStatus('Hecho') || normalizedName === normalizeStatus('Done');
+        return normalizedName === normalizeStatus('Hecho') || normalizedName === normalizeStatus('Done') || normalizedName === normalizeStatus('Listo para Prod');
+    }
+    if (normalizedTarget === normalizeStatus('Enviado a QA')) {
+        return normalizedName === normalizeStatus('QA') || normalizedName === normalizeStatus('En QA') || normalizedName === normalizeStatus('Testing');
     }
     
     return false;
@@ -48,7 +51,9 @@ function calculateStoryMetrics(story, history) {
 
     let leadTime = null;
     let cycleTime = 0;
+    let qaTime = 0;
     let lastInProgressStart = null;
+    let lastQaStart = null;
 
     sortedHistory.forEach(entry => {
         const entryDate = new Date(entry.created_at);
@@ -56,19 +61,30 @@ function calculateStoryMetrics(story, history) {
             const statusTo = entry.values_diff.status[1];
             const statusFrom = entry.values_diff.status[0];
 
+            // Lead Time (to Production)
             if (isStatusName(statusTo, 'En Produccion') && !leadTime) {
                 leadTime = entryDate - creation;
             }
+
+            // Cycle Time (Progress)
             if (isStatusName(statusTo, 'En Progreso')) {
                 lastInProgressStart = entryDate;
             } else if (isStatusName(statusFrom, 'En Progreso') && lastInProgressStart) {
                 cycleTime += (entryDate - lastInProgressStart);
                 lastInProgressStart = null;
             }
+
+            // QA Time
+            if (isStatusName(statusTo, 'Enviado a QA')) {
+                lastQaStart = entryDate;
+            } else if (isStatusName(statusFrom, 'Enviado a QA') && lastQaStart) {
+                qaTime += (entryDate - lastQaStart);
+                lastQaStart = null;
+            }
         }
     });
 
-    return { leadTime, cycleTime, lastInProgressStart };
+    return { leadTime, cycleTime, qaTime, lastInProgressStart, lastQaStart };
 }
 
 
@@ -110,10 +126,11 @@ let projectStories = [];
 projectNameDisplay.textContent = projectName;
 
 // Initialize dates
+// Initialize dates - showing last 30 days by default
 const today = new Date();
-const sevenDaysAgo = new Date();
-sevenDaysAgo.setDate(today.getDate() - 7);
-startDateInput.value = sevenDaysAgo.toISOString().split('T')[0];
+const thirtyDaysAgo = new Date();
+thirtyDaysAgo.setDate(today.getDate() - 30);
+startDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
 endDateInput.value = today.toISOString().split('T')[0];
 
 async function init() {
@@ -137,6 +154,7 @@ let metricCache = new Map();
 let activeFilters = {
     title: '',
     assigned: '',
+    tag: '',
     startDate: '',
     endDate: ''
 };
@@ -172,7 +190,10 @@ function getFilteredStories() {
             'No asignada';
         const matchesAssigned = assignedTo.toLowerCase().includes(activeFilters.assigned.toLowerCase());
 
-        const isMatch = matchesTitle && matchesAssigned;
+        const tagsString = (Array.isArray(story.tags) ? story.tags.map(t => Array.isArray(t) ? t[0] : (typeof t === 'string' ? t.split(',')[0] : String(t))) : []).join(' ');
+        const matchesTag = tagsString.toLowerCase().includes(activeFilters.tag.toLowerCase());
+
+        const isMatch = matchesTitle && matchesAssigned && matchesTag;
         return !excludeReason && isMatch;
     });
     return filtered;
@@ -232,6 +253,11 @@ function renderStories() {
         return;
     }
 
+    if (filteredStories.length === 0) {
+        listView.innerHTML = `<div class="empty-state"> No hay historias que coincidan con los filtros seleccionados.</div>`;
+        return;
+    }
+
     listView.innerHTML = `
         <table class="stories-table">
             <thead>
@@ -239,8 +265,14 @@ function renderStories() {
                     <th class="col-id">ID</th>
                     <th class="col-title">
                         <div class="header-filter">
-                            <span>Titulo de la Historia de Usuario</span>
+                            <span>Titulo</span>
                             <input type="text" id="titleFilter" class="column-filter" placeholder="Filtrar por titulo..." value="${activeFilters.title}">
+                        </div>
+                    </th>
+                    <th class="col-tags">
+                        <div class="header-filter">
+                            <span>TAGS</span>
+                            <input type="text" id="tagFilter" class="column-filter" placeholder="Filtrar por tag..." value="${activeFilters.tag}">
                         </div>
                     </th>
                     <th class="col-assigned">
@@ -253,12 +285,11 @@ function renderStories() {
                     <th class="col-status">Status</th>
                     <th class="col-metric">Tiempo de Proceso</th>
                     <th class="col-metric">Tiempo en Progreso</th>
+                    <th class="col-metric">Tiempo en QA</th>
                 </tr>
             </thead>
             <tbody id="storiesBody">
                 ${filteredStories.map((story, idx) => {
-        if (idx === 0) console.log('DEBUG US Data:', story);
-
         const assignedTo = story.assigned_to_name ||
             (story.assigned_to_extra_info && story.assigned_to_extra_info.full_name) ||
             (story.assigned_to_extra && story.assigned_to_extra.full_name) ||
@@ -272,11 +303,28 @@ function renderStories() {
             'Unknown';
 
         const metrics = metricCache.get(story.id);
+        const tags = Array.isArray(story.tags) ? story.tags : [];
 
         return `
                         <tr class="story-row" data-id="${story.id}" data-ref="${story.ref}" data-subject="${story.subject.replace(/"/g, '&quot;')}" data-created="${story.created_date}">
                             <td><span class="story-ref">#${story.ref}</span></td>
                             <td><div class="story-subject">${story.subject}</div></td>
+                            <td>
+                                <div class="tags-container">
+                                    ${tags.map(tag => {
+                                        let name, color;
+                                        if (Array.isArray(tag)) {
+                                            [name, color] = tag;
+                                        } else if (typeof tag === 'string') {
+                                            [name, color] = tag.split(',');
+                                        } else {
+                                            name = String(tag);
+                                        }
+                                        const style = color ? `style="background-color: ${color}; color: white; border: none; text-shadow: 0 1px 2px rgba(0,0,0,0.2);"` : '';
+                                        return `<span class="tag-badge" ${style}>${name}</span>`;
+                                    }).join('')}
+                                </div>
+                            </td>
                             <td><span class="tag">${assignedTo}</span></td>
                             <td style="text-align: center;">${story.total_points || 0}</td>
                             <td><span class="tag status-tag">${statusName}</span></td>
@@ -285,6 +333,9 @@ function renderStories() {
                             </td>
                             <td id="in-progress-${story.id}">
                                 ${metrics ? formatDuration(metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
+                            </td>
+                            <td id="qa-time-${story.id}">
+                                ${metrics ? formatDuration(metrics.qaTime + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
                             </td>
                         </tr>
                     `;
@@ -300,6 +351,10 @@ function renderStories() {
     });
     document.getElementById('assignedFilter').addEventListener('input', (e) => {
         activeFilters.assigned = e.target.value;
+        renderStories();
+    });
+    document.getElementById('tagFilter').addEventListener('input', (e) => {
+        activeFilters.tag = e.target.value;
         renderStories();
     });
 
@@ -333,6 +388,7 @@ async function fetchRowMetrics(story) {
         // Update the cells directly if they exist in the DOM
         const processCell = document.getElementById(`process-time-${story.id}`);
         const progressCell = document.getElementById(`in-progress-${story.id}`);
+        const qaCell = document.getElementById(`qa-time-${story.id}`);
 
         if (processCell) {
             processCell.textContent = metrics.leadTime ? formatDuration(metrics.leadTime) : 'N/A';
@@ -341,6 +397,10 @@ async function fetchRowMetrics(story) {
             const currentCycle = metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
             progressCell.textContent = currentCycle > 0 ? formatDuration(currentCycle) : '0h';
         }
+        if (qaCell) {
+            const currentQa = metrics.qaTime + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0);
+            qaCell.textContent = currentQa > 0 ? formatDuration(currentQa) : '0h';
+        }
 
         // Update global metrics since we have new data
         updateGlobalMetrics(getFilteredStories());
@@ -348,8 +408,10 @@ async function fetchRowMetrics(story) {
         console.error(`Error al obtener metricas de la historia ${story.id}`, err);
         const processCell = document.getElementById(`process-time-${story.id}`);
         const progressCell = document.getElementById(`in-progress-${story.id}`);
+        const qaCell = document.getElementById(`qa-time-${story.id}`);
         if (processCell) processCell.textContent = 'Error';
         if (progressCell) progressCell.textContent = 'Error';
+        if (qaCell) qaCell.textContent = 'Error';
     }
 }
 
@@ -406,10 +468,34 @@ endDateInput.addEventListener('change', (e) => {
     renderStories();
 });
 
-calculateBtn.addEventListener('click', () => {
-    activeFilters.startDate = startDateInput.value;
-    activeFilters.endDate = endDateInput.value;
-    renderStories();
+calculateBtn.addEventListener('click', async () => {
+    // Show loading state
+    calculateBtn.disabled = true;
+    metricsLoading.classList.remove('hidden');
+    projectMetricsResults.style.opacity = '0.5';
+
+    try {
+        // Trigger data refresh in the backend
+        await fetch('/api/refresh', { method: 'POST' });
+        
+        // Re-fetch all data to get the new stories from the backend
+        currentData = await fetchData();
+        projectStories = currentData.filter(s => String(s.project) === String(projectName));
+        
+        // Update the stats count
+        stats.textContent = projectStories.length + ' Historias de Usuario';
+
+        // Apply filters and render
+        activeFilters.startDate = startDateInput.value;
+        activeFilters.endDate = endDateInput.value;
+        renderStories();
+    } catch (err) {
+        console.error('Error al actualizar datos:', err);
+    } finally {
+        calculateBtn.disabled = false;
+        metricsLoading.classList.add('hidden');
+        projectMetricsResults.style.opacity = '1';
+    }
 });
 
 init();

@@ -15,6 +15,9 @@ async function updateProjects() {
     refreshBtn.disabled = true;
 
     try {
+        // Trigger data refresh in the backend
+        await fetch('/api/refresh', { method: 'POST' });
+        
         const stories = await fetchData();
         const projects = [...new Set(stories.map(s => s.project))].sort((a, b) => String(a).localeCompare(String(b)));
 
