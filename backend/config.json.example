@@ -3,5 +3,5 @@
     "username": "your-username",
     "auth_token": "your-auth-token",
     "user_id": 0,
-    "project_ids": []
+    "project_ids": [40, 16, 15, 14, 26, 11, 35]
 }
