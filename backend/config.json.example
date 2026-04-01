@@ -1,0 +1,7 @@
+{
+    "taiga_domain": "taiga.your-domain.com",
+    "username": "your-username",
+    "auth_token": "your-auth-token",
+    "user_id": 0,
+    "project_ids": []
+}

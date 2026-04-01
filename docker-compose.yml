@@ -5,7 +5,7 @@ services:
       - "3000:3000"
     volumes:
       - ./backend/config.json:/app/config.json
-  
+
   frontend:
     build: ./frontend
     ports:
