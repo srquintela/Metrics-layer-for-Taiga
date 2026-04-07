@@ -53,15 +53,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
             const result = await response.json();
+            console.log('[DEBUG] Auth validation response:', {
+                status: response.status,
+                ok: response.ok,
+                body: result
+            });
 
             if (response.ok && result.status === 'success') {
+                if (result.signature) {
+                    console.log('%c' + result.signature, 'color: #38bdf8; font-weight: bold; font-family: monospace;');
+                }
                 showStatus(`Conectado como ${result.user.full_name}`, 'success');
                 currentAuthToken = result.user.auth_token;
                 currentUserId = result.user.id;
             } else {
-                showStatus(`Conexión fallida: ${result.message}`, 'error');
+                const errorMsg = result.message || 'Error desconocido';
+                showStatus(`Conexión fallida: ${errorMsg}`, 'error');
+                console.error('[ERROR] Conexión fallida:', result);
             }
         } catch (e) {
+            console.error('[ERROR] Error en petición de autenticación:', e);
             showStatus(`Error al conectar al servidor: ${e.message}`, 'error');
         } finally {
             testBtn.disabled = false;
@@ -86,14 +97,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
 
                 const authResult = await authRes.json();
+                console.log('[DEBUG] Auth validation result (during save):', authResult);
+                
                 if (authRes.ok && authResult.status === 'success') {
                     currentAuthToken = authResult.user.auth_token;
                     currentUserId = authResult.user.id;
                 } else {
-                    showStatus(`Validacion fallida: ${authResult.message}. Config no guardada.`, 'error');
+                    showStatus(`Validación fallida: ${authResult.message}. Config no guardada.`, 'error');
+                    console.error('[ERROR] Validation failed:', authResult);
                     return;
                 }
             } catch (e) {
+                console.error('[ERROR] Error during validation:', e);
                 showStatus(`Error al validar credenciales: ${e.message}`, 'error');
                 return;
             }
@@ -116,15 +131,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 })
             });
 
+            console.log('[DEBUG] Save settings response status:', saveRes.status);
+
             if (saveRes.ok) {
                 showStatus('Configuración guardada correctamente!', 'success');
                 passwordInput.value = '';
                 passwordInput.placeholder = '•••••••• (Token guardado)';
             } else {
                 const error = await saveRes.json();
+                console.error('[ERROR] Failed to save settings:', error);
                 showStatus(`Error al guardar configuración: ${error.message}`, 'error');
             }
         } catch (e) {
+            console.error('[ERROR] Error saving settings:', e);
             showStatus(`Error al guardar configuración: ${e.message}`, 'error');
         }
     });

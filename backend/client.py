@@ -38,7 +38,7 @@ def fetch_and_import():
     try:
         print(f"Fetching user info from {domain} (ID: {user_id})...")
         user_url = f"https://{domain}/api/v1/users/{user_id}"
-        user_res = requests.get(user_url, headers=headers, verify=False)
+        user_res = requests.get(user_url, headers=headers, verify=False, timeout=10)
         user_res.raise_for_status()
         user_info = user_res.json()
         print(f"Running for user: {user_info.get('full_name', 'Unknown')} (ID: {user_id})")
@@ -53,7 +53,7 @@ def fetch_and_import():
         for pid in project_ids:
             try:
                 p_url = f"https://{domain}/api/v1/projects/{pid}"
-                p_res = requests.get(p_url, headers=headers, verify=False)
+                p_res = requests.get(p_url, headers=headers, verify=False, timeout=10)
                 p_res.raise_for_status()
                 p_data = p_res.json()
                 project_names[pid] = p_data['name']
@@ -74,7 +74,7 @@ def fetch_and_import():
         status_map = {}
         try:
             status_url = f"https://{domain}/api/v1/userstory-statuses?project={project_id}"
-            status_res = requests.get(status_url, headers=headers, verify=False)
+            status_res = requests.get(status_url, headers=headers, verify=False, timeout=10)
             status_res.raise_for_status()
             for s in status_res.json():
                 status_map[s['id']] = s['name']
@@ -85,7 +85,7 @@ def fetch_and_import():
         member_map = {}
         try:
             member_url = f"https://{domain}/api/v1/memberships?project={project_id}"
-            member_res = requests.get(member_url, headers=headers, verify=False)
+            member_res = requests.get(member_url, headers=headers, verify=False, timeout=10)
             member_res.raise_for_status()
             for m in member_res.json():
                 member_map[m['user']] = m['full_name'] or m['user_display_name'] or m['username']
@@ -101,7 +101,7 @@ def fetch_and_import():
             
             try:
                 # Fetch user stories for the specific page
-                response = requests.get(url, headers=headers, verify=False) 
+                response = requests.get(url, headers=headers, verify=False, timeout=20) 
                 response.raise_for_status()
                 stories = response.json()
                 
@@ -156,7 +156,7 @@ def fetch_and_import():
             "data": all_stories
         }
         
-        import_response = requests.post(local_server_url, json=payload)
+        import_response = requests.post(local_server_url, json=payload, timeout=10)
         import_response.raise_for_status()
         
         print("Import successful!")

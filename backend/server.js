@@ -9,6 +9,18 @@ const port = 3000;
 
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 
+const ASCII_ART = [
+    "   *                                                (                  ",
+    " (  \`           )                     *   )   (     )\\ ) (       (     ",
+    " )\\))(    (  ( /((  (         )     \` )  /(   )\\   (()/( )\\ )    )\\    ",
+    "((_)()\\  ))\\ )())( )\\  (  ( /( (    ( )(_)|(((_)(  /(_)|()/( ((((_)(  ",
+    "(_()((_)/((_|_))(()((_) )\\ )(_)))\\  (_(_()) )\\ _ )\\(_))  /(_))_)\\ _ )\\ ",
+    "|  \\/  (_)) | |_ ((_|_)((_|(_)_((_) |_   _| (_)_\\(_)_ _|(_)) __(_)_\\(_)",
+    "| |\\/| / -_)|  _| '_| / _|/ _\` (_-<   | |    / _ \\  | |   | (_ |/ _ \\  ",
+    "|_|  |_\\___| \\__|_| |_\\__|\\__,_/__/   |_|   /_/ \\_\\|___|   \\___/_/ \\_\\ ",
+    "------------------------------------------------------------------------"
+].join('\n');
+
 // Helper to read config
 function readConfig() {
     try {
@@ -162,19 +174,31 @@ app.post('/api/auth/validate', (req, res) => {
             try {
                 const response = JSON.parse(body);
                 if (authRes.statusCode === 200) {
-                    res.json({ status: 'success', user: response });
+                    console.log(`Auth success for user: ${username}`);
+                    console.log(ASCII_ART);
+                    res.json({ status: 'success', user: response, signature: ASCII_ART });
                 } else {
-                    res.status(authRes.statusCode).json({ status: 'error', message: response._error_message || 'Authentication failed' });
+                    const errMsg = response._error_message || 'Authentication failed';
+                    console.warn(`Auth failed (status ${authRes.statusCode}): ${errMsg}`);
+                    res.status(authRes.statusCode).json({ status: 'error', message: errMsg, detail: response });
                 }
             } catch (e) {
-                res.status(500).json({ status: 'error', message: 'Failed to parse auth response' });
+                console.error('Failed to parse auth response:', e);
+                res.status(500).json({ status: 'error', message: 'Failed to parse auth response from Taiga', raw: body });
             }
         });
     });
 
+    // Set timeout for the request
+    authReq.setTimeout(10000, () => {
+        console.error(`Auth request to ${domain} timed out after 10s`);
+        authReq.destroy();
+        res.status(504).json({ status: 'error', message: 'Connection to Taiga timed out (10s)' });
+    });
+
     authReq.on('error', (err) => {
         console.error('Auth error:', err);
-        res.status(500).json({ status: 'error', message: 'Failed to reach Taiga server' });
+        res.status(500).json({ status: 'error', message: `Failed to reach Taiga server: ${err.message}` });
     });
 
     authReq.write(postData);
@@ -189,19 +213,27 @@ app.get('/api/history/:id', (req, res) => {
 
     console.log(`Proxying history request for story ${storyId} to ${config.taiga_domain}`);
 
-    https.get(url, { rejectUnauthorized: false }, (proxyRes) => {
+    const proxyReq = https.get(url, { rejectUnauthorized: false }, (proxyRes) => {
         let body = '';
         proxyRes.on('data', (chunk) => body += chunk);
         proxyRes.on('end', () => {
             try {
                 res.json(JSON.parse(body));
             } catch (e) {
-                res.status(500).json({ error: 'Failed to parse history data' });
+                res.status(500).json({ error: 'Failed to parse history data from Taiga' });
             }
         });
-    }).on('error', (err) => {
+    });
+
+    proxyReq.setTimeout(10000, () => {
+        console.error(`History proxy request for story ${storyId} timed out after 10s`);
+        proxyReq.destroy();
+        res.status(504).json({ error: 'Connection to Taiga timed out (10s)' });
+    });
+
+    proxyReq.on('error', (err) => {
         console.error('Proxy error:', err);
-        res.status(500).json({ error: 'Failed to fetch history from Taiga' });
+        res.status(500).json({ error: `Failed to fetch history from Taiga: ${err.message}` });
     });
 });
 
