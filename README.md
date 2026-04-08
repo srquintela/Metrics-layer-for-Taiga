@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-# Metrics-layer-for-Taiga
-A premium, glassmorphic dashboard for visualizing Taiga project metrics (Lead Time, Cycle Time, WIP, Throughput) with a custom Node.js backend and Python data sync worker.  You can find the updated README.md in the project root.
-=======
 # Taiga Metrics Dashboard
 
-A premium, glassmorphic dashboard for visualizing and analyzing Taiga project metrics. Track Lead Time, Cycle Time, Throughput, WIP, and **QA Time** with a modern, responsive interface.
+A premium, glassmorphic dashboard for visualizing and analyzing Taiga project metrics. Track Lead Time, Cycle Time, Throughput, WIP, and **QA Time** with a modern, responsive interface. The UI has Spanish titles and text because my users live in a Spanish speaking country. You want English localization? Just reach out. Thanks!
 
 ## 🚀 Features
 
@@ -70,4 +66,4 @@ npm run dev
 
 ## 📝 GitHub Description
 *A modern, glassmorphic dashboard for visualizing Taiga project metrics (Lead Time, Cycle Time, QA Time, WIP, Throughput) with an automated Node.js backend and integrated Python data sync worker.*
->>>>>>> dev
+
