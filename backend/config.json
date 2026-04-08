@@ -1,0 +1,15 @@
+{
+    "taiga_domain": "taiga.bdp.com.bo",
+    "username": "usuario",
+    "auth_token": "123",
+    "user_id": 7,
+    "project_ids": [
+        40,
+        16,
+        15,
+        14,
+        26,
+        11,
+        35
+    ]
+}
