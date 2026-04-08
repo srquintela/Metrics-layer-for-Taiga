@@ -1,0 +1,15 @@
+{
+    "taiga_domain": "taiga.bdp.com.bo",
+    "username": "silvia.quintela@bdp.com.bo",
+    "auth_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc1NzY1MDQ4LCJqdGkiOiI3YTUwODlhZTczZmQ0MzA0YWY3YjIwMDg4YTJjODAzMiIsInVzZXJfaWQiOjd9.uf6jkM3zNBSsFrIZWtz6KPSyYYzcqDOMZIEdSd_I9I0",
+    "user_id": 7,
+    "project_ids": [
+        40,
+        16,
+        15,
+        14,
+        26,
+        11,
+        35
+    ]
+}

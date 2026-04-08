@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taiga Metricas - Configuracion</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <div class="header-content">
+            <h1 onclick="window.location.href='index.html'" style="cursor: pointer;">Taiga Metricas</h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="settings.html" class="active">Configuracion</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="settings-card">
+            <h2>Acceso al servidor Taiga</h2>
+            <p class="section-desc">Configure su servidor Taiga y sus credenciales.</p>
+
+            <form id="settings-form">
+                <div class="form-group">
+                    <label for="taiga-domain">Dominio del servidor Taiga</label>
+                    <input type="text" id="taiga-domain" placeholder="e.g. taiga.bdp.com.bo" required>
+                    <small>El dominio donde esta alojado su servidor Taiga.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="username">Usuario</label>
+                    <input type="text" id="username" placeholder="nombre.apellido@bdp.com.bo" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" placeholder="Su contraseña de Taiga" required>
+                    <small>Su contraseña es utilizada solo para validación y no se almacena permanentemente. Se
+                        almacenará un token de autenticación en su lugar.</small>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" id="test-connection" class="btn secondary">Probar conexión</button>
+                    <button type="submit" id="save-settings" class="btn primary">Guardar</button>
+                </div>
+            </form>
+
+            <div id="status-message" class="status-box hidden"></div>
+        </section>
+    </main>
+
+    <script type="module" src="settings.js"></script>
+</body>
+
+</html>
