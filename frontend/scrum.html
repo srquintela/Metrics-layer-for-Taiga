@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scrum Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1 id="logo" style="cursor: pointer;">Taiga Metricas</h1>
+            <nav>
+                <a href="index.html">Dashboard</a>
+                <a href="#" class="active">Scrum</a>
+                <a href="settings.html">Configuracion</a>
+                <button id="theme-toggle" class="theme-toggle" title="Cambiar tema">
+                    <!-- Icon populated by theme.js -->
+                </button>
+            </nav>
+            <div class="header-actions">
+                <button id="backBtn" class="back-btn">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z" />
+                    </svg>
+                    <span>Atras</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="metrics-bar">
+            <div class="filter-form">
+                <h2 id="projectNameDisplay" style="margin: 0; color: var(--accent-color);">Nombre del Proyecto</h2>
+                <div class="input-group">
+                    <label for="sprintSelect">Sprint</label>
+                    <select id="sprintSelect" class="column-filter" style="min-width: 200px;">
+                        <option value="">Cargando sprints...</option>
+                    </select>
+                </div>
+                <button id="refreshScrumBtn" class="calculate-btn">Actualizar Vista</button>
+            </div>
+        </div>
+
+        <div id="loadingOverlay" class="metrics-loading hidden">
+            <div class="loader"></div>
+            <span>Calculando metricas del sprint...</span>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>Burndown Chart</h3>
+                <div class="chart-container">
+                    <canvas id="burndownChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>Progreso de Historias</h3>
+                <div class="chart-container">
+                    <canvas id="progressChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>TAREAS POR DEV</h3>
+                <div class="chart-container">
+                    <canvas id="teamChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>VELOCIDAD DE ENTREGA</h3>
+                <div class="chart-container">
+                    <canvas id="velocityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="./theme.js"></script>
+    <script type="module" src="./scrum.js"></script>
+</body>
+</html>

@@ -90,6 +90,7 @@ function calculateStoryMetrics(story, history) {
 
 const urlParams = new URLSearchParams(window.location.search);
 const projectName = urlParams.get('project');
+const projectId = urlParams.get('id');
 
 if (!projectName) {
     window.location.href = '/';
@@ -134,10 +135,26 @@ startDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
 endDateInput.value = today.toISOString().split('T')[0];
 
 async function init() {
+    listView.innerHTML = '<div class="empty-state">Sincronizando historias del proyecto con Taiga... (esto puede tardar unos segundos)</div>';
+    
     try {
+        // Trigger specific project refresh
+        if (projectId) {
+            console.log(`[DEBUG] Refreshing specific project ${projectId}...`);
+            const refreshRes = await fetch(`/api/refresh?project=${projectId}`, { method: 'POST' });
+            if (!refreshRes.ok) {
+                console.warn('Project refresh failed, loading existing data...');
+            }
+        }
+
         currentData = await fetchData();
         projectStories = currentData.filter(s => String(s.project) === String(projectName));
         stats.textContent = projectStories.length + ' Historias de Usuario';
+
+        if (projectStories.length === 0) {
+            listView.innerHTML = `<div class="empty-state"> No se encontraron Historias de Usuario para el proyecto "${projectName}". Puede que aun se esten procesando o que el ID sea incorrecto.</div>`;
+            return;
+        }
 
         // Initialize active filters from inputs
         activeFilters.startDate = startDateInput.value;
@@ -146,7 +163,7 @@ async function init() {
         renderStories();
     } catch (err) {
         console.error('Error al cargar datos del proyecto', err);
-        listView.innerHTML = '<div class="empty-state">Error al cargar datos del proyecto.</div>';
+        listView.innerHTML = `<div class="empty-state">Error al cargar datos del proyecto: ${err.message}</div>`;
     }
 }
 
@@ -155,6 +172,7 @@ let activeFilters = {
     title: '',
     assigned: '',
     tag: '',
+    sprint: '',
     startDate: '',
     endDate: ''
 };
@@ -193,7 +211,10 @@ function getFilteredStories() {
         const tagsString = (Array.isArray(story.tags) ? story.tags.map(t => Array.isArray(t) ? t[0] : (typeof t === 'string' ? t.split(',')[0] : String(t))) : []).join(' ');
         const matchesTag = tagsString.toLowerCase().includes(activeFilters.tag.toLowerCase());
 
-        const isMatch = matchesTitle && matchesAssigned && matchesTag;
+        const sprintName = story.sprint_name || 'Sin Sprint';
+        const matchesSprint = sprintName.toLowerCase().includes(activeFilters.sprint.toLowerCase());
+
+        const isMatch = matchesTitle && matchesAssigned && matchesTag && matchesSprint;
         return !excludeReason && isMatch;
     });
     return filtered;
@@ -281,6 +302,12 @@ function renderStories() {
                             <input type="text" id="assignedFilter" class="column-filter" placeholder="Filtrar por asignado..." value="${activeFilters.assigned}">
                         </div>
                     </th>
+                    <th class="col-sprint">
+                        <div class="header-filter">
+                            <span>Sprint</span>
+                            <input type="text" id="sprintFilter" class="column-filter" placeholder="Filtrar por sprint..." value="${activeFilters.sprint}">
+                        </div>
+                    </th>
                     <th class="col-points">Puntos</th>
                     <th class="col-status">Status</th>
                     <th class="col-metric">Tiempo de Proceso</th>
@@ -326,6 +353,7 @@ function renderStories() {
                                 </div>
                             </td>
                             <td><span class="tag">${assignedTo}</span></td>
+                            <td><span class="tag" style="background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); border-color: var(--glass-border); text-transform: none;">${story.sprint_name || 'Sin Sprint'}</span></td>
                             <td style="text-align: center;">${story.total_points || 0}</td>
                             <td><span class="tag status-tag">${statusName}</span></td>
                             <td id="process-time-${story.id}">
@@ -355,6 +383,10 @@ function renderStories() {
     });
     document.getElementById('tagFilter').addEventListener('input', (e) => {
         activeFilters.tag = e.target.value;
+        renderStories();
+    });
+    document.getElementById('sprintFilter').addEventListener('input', (e) => {
+        activeFilters.sprint = e.target.value;
         renderStories();
     });
 
@@ -475,8 +507,9 @@ calculateBtn.addEventListener('click', async () => {
     projectMetricsResults.style.opacity = '0.5';
 
     try {
-        // Trigger data refresh in the backend
-        await fetch('/api/refresh', { method: 'POST' });
+        // Trigger data refresh in the backend for this specific project
+        const url = projectId ? `/api/refresh?project=${projectId}` : '/api/refresh';
+        await fetch(url, { method: 'POST' });
         
         // Re-fetch all data to get the new stories from the backend
         currentData = await fetchData();

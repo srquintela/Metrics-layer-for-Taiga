@@ -52,10 +52,10 @@ app.use(cors());
 
 // Root route handler
 app.get('/', (req, res) => {
-    res.json({ 
-        status: 'online', 
-        message: 'Metrics Layer Backend is running', 
-        endpoints: ['/api/data', '/api/settings', '/import'] 
+    res.json({
+        status: 'online',
+        message: 'Metrics Layer Backend is running',
+        endpoints: ['/api/data', '/api/settings', '/import']
     });
 });
 
@@ -75,7 +75,7 @@ let dataStore = {
 app.post('/import', (req, res) => {
     const itemCount = req.body.data ? req.body.data.length : (Array.isArray(req.body) ? req.body.length : 1);
     console.log(`[IMPORT] Received ${itemCount} items from Python client (type: ${req.body.type || 'unknown'})`);
-    
+
     dataStore = {
         type: req.body.type || 'unknown',
         items: req.body.data || (Array.isArray(req.body) ? req.body : [req.body])
@@ -94,12 +94,72 @@ app.get('/api/settings', (req, res) => {
     res.json(config);
 });
 
+// New endpoint to fetch only the project list from Taiga
+app.get('/api/projects', (req, res) => {
+    const config = readConfig();
+    if (!config.auth_token || !config.user_id) {
+        return res.status(401).json({ status: 'error', message: 'No authenticated. Please configure settings.' });
+    }
+
+    const options = {
+        hostname: config.taiga_domain,
+        port: 443,
+        path: `/api/v1/projects?member=${config.user_id}`,
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${config.auth_token}`,
+            'Content-Type': 'application/json'
+        },
+        rejectUnauthorized: false
+    };
+
+    const projectsReq = https.request(options, (projectsRes) => {
+        let body = '';
+        projectsRes.on('data', (chunk) => body += chunk);
+        projectsRes.on('end', () => {
+            try {
+                const projects = JSON.parse(body);
+                res.json(projects);
+            } catch (e) {
+                res.status(500).json({ status: 'error', message: 'Failed to parse projects from Taiga' });
+            }
+        });
+    });
+
+    projectsReq.on('error', (err) => {
+        res.status(500).json({ status: 'error', message: `Taiga error: ${err.message}` });
+    });
+
+    projectsReq.end();
+});
+
 // Endpoint to trigger Python data import
 app.post('/api/refresh', (req, res) => {
-    console.log('Starting data refresh via Python client...');
+    const projectId = req.query.project;
+    console.log(`Starting data refresh via Python client${projectId ? ' for project ' + projectId : ''}...`);
+
+    // Detect the best python executable
+    const pythonExe = process.platform === 'win32' ? 'python' : 'python3';
     
-    // Use spawn to run the python script
-    const pythonProcess = spawn('python3', [path.join(__dirname, 'client.py')]);
+    // Spawn with optional project ID argument
+    const args = [path.join(__dirname, 'client.py')];
+    if (projectId) {
+        args.push('--project');
+        args.push(projectId);
+    }
+    
+    const pythonProcess = spawn(pythonExe, args);
+
+    pythonProcess.on('error', (err) => {
+        console.error('Failed to start Python process:', err);
+        if (!res.headersSent) {
+            res.status(500).json({
+                status: 'error',
+                message: `Failed to start Python process: ${err.message}. Ensure '${pythonExe}' is in your PATH.`,
+                detail: err
+            });
+        }
+    });
 
     let output = '';
     let errorOutput = '';
@@ -119,10 +179,10 @@ app.post('/api/refresh', (req, res) => {
         if (code === 0) {
             res.json({ status: 'success', message: 'Data refresh completed', output });
         } else {
-            res.status(500).json({ 
-                status: 'error', 
-                message: `Refresh failed with code ${code}`, 
-                error: errorOutput 
+            res.status(500).json({
+                status: 'error',
+                message: `Refresh failed with code ${code}`,
+                error: errorOutput
             });
         }
     });
@@ -131,12 +191,12 @@ app.post('/api/refresh', (req, res) => {
 app.post('/api/settings', (req, res) => {
     const config = readConfig();
     const newSettings = req.body;
-    
+
     config.taiga_domain = newSettings.taiga_domain || config.taiga_domain;
     config.username = newSettings.username || config.username;
     config.auth_token = newSettings.auth_token || config.auth_token;
     config.user_id = newSettings.user_id || config.user_id || 7;
-    
+
     if (writeConfig(config)) {
         res.json({ status: 'success', config });
     } else {
@@ -148,7 +208,7 @@ app.post('/api/settings', (req, res) => {
 app.post('/api/auth/validate', (req, res) => {
     const { domain, username, password } = req.body;
     const url = `https://${domain}/api/v1/auth`;
-    
+
     const postData = JSON.stringify({
         username,
         password,

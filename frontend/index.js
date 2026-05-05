@@ -1,3 +1,20 @@
+async function checkAuth() {
+    try {
+        const response = await fetch('/api/settings');
+        const settings = await response.json();
+        if (!settings.auth_token) {
+            console.warn('[AUTH] No auth token found, redirecting to settings...');
+            window.location.href = 'settings.html';
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.error('[AUTH] Failed to check settings:', e);
+        window.location.href = 'settings.html';
+        return false;
+    }
+}
+
 async function fetchData() {
     const response = await fetch('/api/data');
     if (!response.ok) {
@@ -19,43 +36,33 @@ async function updateProjects() {
     refreshBtn.disabled = true;
 
     try {
-        console.log('[DEBUG] Triggering data refresh...');
-        // Trigger data refresh in the backend
-        const refreshRes = await fetch('/api/refresh', { method: 'POST' });
-        
-        if (!refreshRes.ok) {
-            let errorMsg = 'Refresh failed';
-            try {
-                const error = await refreshRes.json();
-                errorMsg = error.message || errorMsg;
-                console.error('[ERROR] Refresh failed details:', error);
-            } catch (e) {
-                console.error('[ERROR] Could not parse refresh error response');
-            }
-            throw new Error(errorMsg);
+        console.log('[DEBUG] Fetching project list...');
+        const response = await fetch('/api/projects');
+        if (!response.ok) {
+            throw new Error('Failed to fetch projects');
         }
-
-        console.log('[DEBUG] Refresh triggered successfully, fetching stories...');
-        const stories = await fetchData();
-        const projects = [...new Set(stories.map(s => s.project))].sort((a, b) => String(a).localeCompare(String(b)));
+        const projects = await response.json();
 
         stats.textContent = projects.length + ' Proyectos';
 
         if (projects.length === 0) {
-            console.warn('[WARN] No projects found in dataStore');
-            projectView.innerHTML = '<div class="empty-state">Esperando datos del script de Python...</div>';
+            console.warn('[WARN] No projects found');
+            projectView.innerHTML = '<div class="empty-state">No se encontraron proyectos para este usuario.</div>';
             return;
         }
 
         projectView.innerHTML = projects.map(project => {
-            const storyCount = stories.filter(s => s.project === project).length;
-            const projectStr = String(project);
+            const projectStr = String(project.name);
+            const projectId = project.id;
             const initial = projectStr.charAt(0).toUpperCase();
             return `
-                <div class="project-card" data-project="${projectStr}">
+                <div class="project-card" data-project="${projectStr}" data-id="${projectId}">
                     <div class="project-icon">${initial}</div>
                     <div class="project-name">${projectStr}</div>
-                    <div class="project-stats">${storyCount} Historias de Usuario</div>
+                    <div class="project-actions">
+                        <button class="action-btn kanban-btn" onclick="event.stopPropagation(); window.location.href='/project.html?project=${encodeURIComponent(projectStr)}&id=${projectId}'">Kanban</button>
+                        <button class="action-btn scrum-btn" onclick="event.stopPropagation(); window.location.href='/scrum.html?project=${encodeURIComponent(projectStr)}&id=${projectId}'">Scrum</button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -63,7 +70,8 @@ async function updateProjects() {
         document.querySelectorAll('.project-card').forEach(card => {
             card.addEventListener('click', () => {
                 const proj = card.getAttribute('data-project');
-                window.location.href = `/project.html?project=${encodeURIComponent(proj)}`;
+                const id = card.getAttribute('data-id');
+                window.location.href = `/project.html?project=${encodeURIComponent(proj)}&id=${id}`;
             });
         });
 
@@ -79,4 +87,8 @@ async function updateProjects() {
 refreshBtn.addEventListener('click', updateProjects);
 logo.addEventListener('click', updateProjects);
 
-updateProjects();
+checkAuth().then(authenticated => {
+    if (authenticated) {
+        updateProjects();
+    }
+});

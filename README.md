@@ -1,6 +1,8 @@
 # Taiga Metrics Dashboard
 
 A premium, glassmorphic dashboard for visualizing and analyzing Taiga project metrics. Track Lead Time, Cycle Time, Throughput, WIP, and **QA Time** with a modern, responsive interface.
+I developed this little Layer because my employer uses Taiga but we need more metrics, which is also why the UI is translated to Spanish. It's Dark because I love my retinas
+Just send a message to this Github Dev SRQUintela if you would like a Languages option as well as a Light UI 
 
 ## 🚀 Features
 

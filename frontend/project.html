@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historias de Usuario en Proyecto</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">
 </head>
 
@@ -16,6 +18,9 @@
             <nav>
                 <a href="index.html" class="active">Dashboard</a>
                 <a href="settings.html">Configuracion</a>
+                <button id="theme-toggle" class="theme-toggle" title="Cambiar tema">
+                    <!-- Icon populated by theme.js -->
+                </button>
             </nav>
             <div class="header-actions">
                 <button id="backBtn" class="back-btn">
@@ -107,6 +112,7 @@
             </div>
         </div>
     </main>
+    <script type="module" src="./theme.js"></script>
     <script type="module" src="./project.js"></script>
 </body>
 

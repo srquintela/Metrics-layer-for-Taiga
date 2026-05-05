@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const response = await fetch('/api/settings');
         const settings = await response.json();
 
-        domainInput.value = settings.taiga_domain || '';
+        domainInput.value = settings.taiga_domain || 'taiga.bdp.com.bo';
         usernameInput.value = settings.username || '';
         currentAuthToken = settings.auth_token || '';
         currentUserId = settings.user_id || 7;
@@ -134,9 +134,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('[DEBUG] Save settings response status:', saveRes.status);
 
             if (saveRes.ok) {
-                showStatus('Configuración guardada correctamente!', 'success');
+                showStatus('Configuración guardada correctamente! Redirigiendo...', 'success');
                 passwordInput.value = '';
                 passwordInput.placeholder = '•••••••• (Token guardado)';
+                
+                // Redirect to dashboard after a short delay
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
             } else {
                 const error = await saveRes.json();
                 console.error('[ERROR] Failed to save settings:', error);
