@@ -1,9 +1,9 @@
 async function checkAuth() {
     try {
-        const response = await fetch('/api/settings');
-        const settings = await response.json();
-        if (!settings.auth_token) {
-            console.warn('[AUTH] No auth token found, redirecting to settings...');
+        // Tokens are stored in sessionStorage on the client
+        const token = sessionStorage.getItem('auth_token');
+        if (!token) {
+            console.warn('[AUTH] No auth token found in sessionStorage, redirecting to settings...');
             window.location.href = 'settings.html';
             return false;
         }
@@ -37,7 +37,12 @@ async function updateProjects() {
 
     try {
         console.log('[DEBUG] Fetching project list...');
-        const response = await fetch('/api/projects');
+        const response = await fetch('/api/projects', {
+            headers: {
+                'Authorization': 'Bearer ' + sessionStorage.getItem('auth_token'),
+                'X-User-Id': sessionStorage.getItem('user_id')
+            }
+        });
         if (!response.ok) {
             throw new Error('Failed to fetch projects');
         }

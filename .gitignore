@@ -28,6 +28,7 @@ backend/config.json
 # IDEs
 .vscode/
 .idea/
+.vs/
 
 # Python
 __pycache__/

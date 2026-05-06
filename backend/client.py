@@ -21,8 +21,25 @@ def load_config():
         "project_ids": [40, 16, 15, 14, 26, 11, 35]
     }
 
+def override_with_env(config):
+    # Allow runtime override using environment variables (used when backend triggers python)
+    domain = os.environ.get('TAIGA_DOMAIN')
+    token = os.environ.get('AUTH_TOKEN')
+    user_id = os.environ.get('USER_ID')
+    if domain:
+        config['taiga_domain'] = domain
+    if token:
+        config['auth_token'] = token
+    if user_id:
+        try:
+            config['user_id'] = int(user_id)
+        except Exception:
+            config['user_id'] = user_id
+    return config
+
 def fetch_and_import(target_project_id=None):
     config = load_config()
+    config = override_with_env(config)
     domain = config.get('taiga_domain', 'taiga.bdp.com.bo')
     auth_token = config.get('auth_token')
     

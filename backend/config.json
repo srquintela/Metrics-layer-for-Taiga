@@ -1,7 +1,7 @@
 {
     "taiga_domain": "taiga.bdp.com.bo",
-    "username": "usuario",
-    "auth_token": "123",
+    "username": "silvia.quintela@bdp.com.bo",
+    "auth_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc4MDk2NzkyLCJqdGkiOiI1MDIxZTI5MzAyNzA0MjhhYWMyNDEwMDkxY2Y2Y2MwNiIsInVzZXJfaWQiOjd9.T6MNHeQ0AMAXCLDXZHzpmmj-v-9gPOttgqNLL4Ewto8",
     "user_id": 7,
     "project_ids": [
         40,

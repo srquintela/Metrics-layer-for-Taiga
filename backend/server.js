@@ -91,23 +91,31 @@ app.get('/api/data', (req, res) => {
 // Settings endpoints
 app.get('/api/settings', (req, res) => {
     const config = readConfig();
-    res.json(config);
+    // Do not expose auth_token, user_id or username via this endpoint. Tokens and username must be stored client-side.
+    res.json({ taiga_domain: config.taiga_domain });
 });
 
 // New endpoint to fetch only the project list from Taiga
 app.get('/api/projects', (req, res) => {
     const config = readConfig();
-    if (!config.auth_token || !config.user_id) {
-        return res.status(401).json({ status: 'error', message: 'No authenticated. Please configure settings.' });
+
+    // Expect the client to provide a token and user id in headers (stored client-side)
+    const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+    const userId = req.headers['x-user-id'];
+
+    if (!authHeader || !userId) {
+        return res.status(401).json({ status: 'error', message: 'Missing authentication. Please login from the settings page.' });
     }
+
+    const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
 
     const options = {
         hostname: config.taiga_domain,
         port: 443,
-        path: `/api/v1/projects?member=${config.user_id}`,
+        path: `/api/v1/projects?member=${userId}`,
         method: 'GET',
         headers: {
-            'Authorization': `Bearer ${config.auth_token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
         },
         rejectUnauthorized: false
@@ -148,7 +156,22 @@ app.post('/api/refresh', (req, res) => {
         args.push(projectId);
     }
     
-    const pythonProcess = spawn(pythonExe, args);
+    // The client must provide authentication via headers (token + user id)
+    const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+    const userId = req.headers['x-user-id'];
+    if (!authHeader || !userId) {
+        return res.status(401).json({ status: 'error', message: 'Missing authentication. Please login from the settings page.' });
+    }
+    const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
+
+    // Pass domain, token and user id to the python process via environment variables
+    const env = Object.assign({}, process.env, {
+        TAIGA_DOMAIN: readConfig().taiga_domain,
+        AUTH_TOKEN: token,
+        USER_ID: String(userId)
+    });
+
+    const pythonProcess = spawn(pythonExe, args, { env });
 
     pythonProcess.on('error', (err) => {
         console.error('Failed to start Python process:', err);
@@ -192,10 +215,9 @@ app.post('/api/settings', (req, res) => {
     const config = readConfig();
     const newSettings = req.body;
 
+    // Only persist non-sensitive settings server-side. Authentication tokens must remain client-side.
     config.taiga_domain = newSettings.taiga_domain || config.taiga_domain;
-    config.username = newSettings.username || config.username;
-    config.auth_token = newSettings.auth_token || config.auth_token;
-    config.user_id = newSettings.user_id || config.user_id || 7;
+    // Do not persist username on server. Username should be kept in browser session storage.
 
     if (writeConfig(config)) {
         res.json({ status: 'success', config });
@@ -269,11 +291,17 @@ app.post('/api/auth/validate', (req, res) => {
 app.get('/api/history/:id', (req, res) => {
     const storyId = req.params.id;
     const config = readConfig();
+
+    const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+    if (!authHeader) {
+        return res.status(401).json({ error: 'Missing authentication token' });
+    }
+    const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
     const url = `https://${config.taiga_domain}/api/v1/history/userstory/${storyId}`;
 
     console.log(`Proxying history request for story ${storyId} to ${config.taiga_domain}`);
 
-    const proxyReq = https.get(url, { rejectUnauthorized: false }, (proxyRes) => {
+    const proxyReq = https.get(url, { headers: { Authorization: `Bearer ${token}` }, rejectUnauthorized: false }, (proxyRes) => {
         let body = '';
         proxyRes.on('data', (chunk) => body += chunk);
         proxyRes.on('end', () => {

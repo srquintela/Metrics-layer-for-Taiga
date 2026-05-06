@@ -86,7 +86,13 @@ async function init() {
         // Trigger specific project refresh
         if (projectId) {
             console.log(`[DEBUG] Refreshing specific project ${projectId}...`);
-            const refreshRes = await fetch(`/api/refresh?project=${projectId}`, { method: 'POST' });
+            const refreshRes = await fetch(`/api/refresh?project=${projectId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + sessionStorage.getItem('auth_token'),
+                    'X-User-Id': sessionStorage.getItem('user_id')
+                }
+            });
             if (!refreshRes.ok) {
                 console.warn('Project refresh failed, loading existing data...');
             }

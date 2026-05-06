@@ -9,18 +9,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     let currentAuthToken = '';
     let currentUserId = 7;
 
-    // Load current settings
+    // Load current settings (domain/username) from server, but tokens are kept client-side in sessionStorage
     try {
         const response = await fetch('/api/settings');
         const settings = await response.json();
 
         domainInput.value = settings.taiga_domain || 'taiga.bdp.com.bo';
-        usernameInput.value = settings.username || '';
-        currentAuthToken = settings.auth_token || '';
-        currentUserId = settings.user_id || 7;
+
+        // Username is kept in browser sessionStorage only
+        usernameInput.value = sessionStorage.getItem('username') || '';
+
+        // Load token and user id from session storage
+        currentAuthToken = sessionStorage.getItem('auth_token') || '';
+        currentUserId = sessionStorage.getItem('user_id') || 7;
 
         if (currentAuthToken) {
-            passwordInput.placeholder = '•••••••• (Token guardado)';
+            passwordInput.placeholder = '•••••••• (Token guardado en sessionStorage)';
         }
     } catch (e) {
         console.error('Error al cargar configuración:', e);
@@ -66,6 +70,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showStatus(`Conectado como ${result.user.full_name}`, 'success');
                 currentAuthToken = result.user.auth_token;
                 currentUserId = result.user.id;
+
+                // Persist auth token, user id and username in browser session storage only
+                sessionStorage.setItem('auth_token', currentAuthToken);
+                sessionStorage.setItem('user_id', String(currentUserId));
+                sessionStorage.setItem('username', username);
             } else {
                 const errorMsg = result.message || 'Error desconocido';
                 showStatus(`Conexión fallida: ${errorMsg}`, 'error');
@@ -102,6 +111,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (authRes.ok && authResult.status === 'success') {
                     currentAuthToken = authResult.user.auth_token;
                     currentUserId = authResult.user.id;
+
+                    // Save auth token, user id and username in sessionStorage
+                    sessionStorage.setItem('auth_token', currentAuthToken);
+                    sessionStorage.setItem('user_id', String(currentUserId));
+                    sessionStorage.setItem('username', username);
                 } else {
                     showStatus(`Validación fallida: ${authResult.message}. Config no guardada.`, 'error');
                     console.error('[ERROR] Validation failed:', authResult);
@@ -120,14 +134,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
+            // Persist username client-side only
+            sessionStorage.setItem('username', username);
+
             const saveRes = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    taiga_domain: domain,
-                    username: username,
-                    auth_token: currentAuthToken,
-                    user_id: currentUserId
+                    taiga_domain: domain
                 })
             });
 

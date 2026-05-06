@@ -141,7 +141,13 @@ async function init() {
         // Trigger specific project refresh
         if (projectId) {
             console.log(`[DEBUG] Refreshing specific project ${projectId}...`);
-            const refreshRes = await fetch(`/api/refresh?project=${projectId}`, { method: 'POST' });
+            const refreshRes = await fetch(`/api/refresh?project=${projectId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + sessionStorage.getItem('auth_token'),
+                    'X-User-Id': sessionStorage.getItem('user_id')
+                }
+            });
             if (!refreshRes.ok) {
                 console.warn('Project refresh failed, loading existing data...');
             }
@@ -509,7 +515,10 @@ calculateBtn.addEventListener('click', async () => {
     try {
         // Trigger data refresh in the backend for this specific project
         const url = projectId ? `/api/refresh?project=${projectId}` : '/api/refresh';
-        await fetch(url, { method: 'POST' });
+        await fetch(url, { method: 'POST', headers: {
+            'Authorization': 'Bearer ' + sessionStorage.getItem('auth_token'),
+            'X-User-Id': sessionStorage.getItem('user_id')
+        }});
         
         // Re-fetch all data to get the new stories from the backend
         currentData = await fetchData();
