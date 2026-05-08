@@ -4,8 +4,51 @@ async function fetchData() {
     return result.items || [];
 }
 
+// Editable status groups for metrics
+// Tiempo en Progreso
+const IN_PROGRESS_STATUSES = [
+    'En Progreso'
+];
+
+// Tiempo en QA
+const QA_STATUSES = [
+    'Enviado a QA',
+    'Control de Calidad',
+    'Listo para Testear',
+    'Listo para Revision'
+];
+
+// Extra statuses that are part of "Proceso" but not in progress/QA
+const EXTRA_PROCESS_STATUSES = [
+    'Pruebas de Usuario',
+    'Espera Usuario'
+];
+
+function statusMatchesAny(name, list) {
+    if (!name) return false;
+    return list.some(s => isStatusName(name, s));
+}
+
 async function fetchHistory(id) {
-    const response = await fetch(`/api/history/${id}`);
+    const token = sessionStorage.getItem('auth_token');
+    const userId = sessionStorage.getItem('user_id');
+    if (!token || !userId) {
+        throw new Error('Missing authentication. Please login.');
+    }
+
+    const response = await fetch(`/api/history/${id}`, {
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'X-User-Id': userId
+        }
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) throw new Error('Unauthorized. Please login.');
+        const errBody = await response.text().catch(() => '');
+        throw new Error(`Failed to fetch history: ${response.status} ${errBody}`);
+    }
+
     return await response.json();
 }
 
@@ -49,11 +92,15 @@ function calculateStoryMetrics(story, history) {
     const creation = new Date(story.created_date);
     const sortedHistory = [...history].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-    let leadTime = null;
-    let cycleTime = 0;
-    let qaTime = 0;
+    let leadTime = null; // time to production
+    let processTime = 0; // computed as inProgressTime + qaTime + extraTime
+    let inProgressTime = 0; // tiempo en progreso (accumulated in En Progreso)
+    let qaTime = 0; // tiempo en QA (accumulated across QA statuses)
+    let extraTime = 0; // time in EXTRA_PROCESS_STATUSES
+
     let lastInProgressStart = null;
     let lastQaStart = null;
+    let lastExtraStart = null;
 
     sortedHistory.forEach(entry => {
         const entryDate = new Date(entry.created_at);
@@ -66,31 +113,56 @@ function calculateStoryMetrics(story, history) {
                 leadTime = entryDate - creation;
             }
 
-            // Cycle Time (Progress)
-            if (isStatusName(statusTo, 'En Progreso')) {
+            // In-Progress Time (En Progreso)
+            if (statusMatchesAny(statusTo, IN_PROGRESS_STATUSES)) {
                 lastInProgressStart = entryDate;
-            } else if (isStatusName(statusFrom, 'En Progreso') && lastInProgressStart) {
-                cycleTime += (entryDate - lastInProgressStart);
+            } else if (statusMatchesAny(statusFrom, IN_PROGRESS_STATUSES) && lastInProgressStart) {
+                inProgressTime += (entryDate - lastInProgressStart);
                 lastInProgressStart = null;
             }
 
-            // QA Time
-            if (isStatusName(statusTo, 'Enviado a QA')) {
+            // QA Time (any status in QA_STATUSES)
+            if (statusMatchesAny(statusTo, QA_STATUSES)) {
                 lastQaStart = entryDate;
-            } else if (isStatusName(statusFrom, 'Enviado a QA') && lastQaStart) {
+            } else if (statusMatchesAny(statusFrom, QA_STATUSES) && lastQaStart) {
                 qaTime += (entryDate - lastQaStart);
                 lastQaStart = null;
+            }
+
+            // Extra Process Time (Pruebas de Usuario, Espera Usuario)
+            if (statusMatchesAny(statusTo, EXTRA_PROCESS_STATUSES)) {
+                lastExtraStart = entryDate;
+            } else if (statusMatchesAny(statusFrom, EXTRA_PROCESS_STATUSES) && lastExtraStart) {
+                extraTime += (entryDate - lastExtraStart);
+                lastExtraStart = null;
             }
         }
     });
 
-    return { leadTime, cycleTime, qaTime, lastInProgressStart, lastQaStart };
+    // Process time is defined as In-Progress + QA + Extra process statuses
+    processTime = inProgressTime + qaTime + extraTime;
+
+    return {
+        leadTime,
+        processTime,
+        inProgressTime,
+        qaTime,
+        extraTime,
+        lastInProgressStart,
+        lastQaStart,
+        lastExtraStart
+    };
 }
 
 
 const urlParams = new URLSearchParams(window.location.search);
 const projectName = urlParams.get('project');
 const projectId = urlParams.get('id');
+
+// Ensure user is authenticated (token present in sessionStorage)
+if (!sessionStorage.getItem('auth_token') || !sessionStorage.getItem('user_id')) {
+    window.location.href = 'settings.html';
+}
 
 if (!projectName) {
     window.location.href = '/';
@@ -257,7 +329,7 @@ function updateGlobalMetrics(filteredStories) {
                 totalLeadTime += metrics.leadTime;
                 leadTimeCount++;
             }
-            const currentCycle = metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
+            const currentCycle = (metrics.inProgressTime || 0) + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
             if (currentCycle > 0) {
                 totalCycleTime += currentCycle;
                 cycleTimeCount++;
@@ -363,13 +435,17 @@ function renderStories() {
                             <td style="text-align: center;">${story.total_points || 0}</td>
                             <td><span class="tag status-tag">${statusName}</span></td>
                             <td id="process-time-${story.id}">
-                                ${metrics ? formatDuration(metrics.leadTime) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
+                                ${metrics ? formatDuration(
+                                    (metrics.inProgressTime || 0) + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)
+                                    + (metrics.qaTime || 0) + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0)
+                                    + (metrics.extraTime || 0) + (metrics.lastExtraStart ? (new Date() - metrics.lastExtraStart) : 0)
+                                ) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
                             </td>
                             <td id="in-progress-${story.id}">
-                                ${metrics ? formatDuration(metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
+                                ${metrics ? formatDuration((metrics.inProgressTime || 0) + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
                             </td>
                             <td id="qa-time-${story.id}">
-                                ${metrics ? formatDuration(metrics.qaTime + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
+                                ${metrics ? formatDuration((metrics.qaTime || 0) + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0)) : '<div class="loading-cell"><div class="loader"></div><span>Obteniendo...</span></div>'}
                             </td>
                         </tr>
                     `;
@@ -429,14 +505,17 @@ async function fetchRowMetrics(story) {
         const qaCell = document.getElementById(`qa-time-${story.id}`);
 
         if (processCell) {
-            processCell.textContent = metrics.leadTime ? formatDuration(metrics.leadTime) : 'N/A';
+            const currentProcess = (metrics.inProgressTime || 0) + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)
+                + (metrics.qaTime || 0) + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0)
+                + (metrics.extraTime || 0) + (metrics.lastExtraStart ? (new Date() - metrics.lastExtraStart) : 0);
+            processCell.textContent = currentProcess > 0 ? formatDuration(currentProcess) : 'N/A';
         }
         if (progressCell) {
-            const currentCycle = metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
+            const currentCycle = (metrics.inProgressTime || 0) + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
             progressCell.textContent = currentCycle > 0 ? formatDuration(currentCycle) : '0h';
         }
         if (qaCell) {
-            const currentQa = metrics.qaTime + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0);
+            const currentQa = (metrics.qaTime || 0) + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0);
             qaCell.textContent = currentQa > 0 ? formatDuration(currentQa) : '0h';
         }
 
@@ -447,6 +526,11 @@ async function fetchRowMetrics(story) {
         const processCell = document.getElementById(`process-time-${story.id}`);
         const progressCell = document.getElementById(`in-progress-${story.id}`);
         const qaCell = document.getElementById(`qa-time-${story.id}`);
+        if (err && (err.message && (err.message.includes('Unauthorized') || err.message.includes('Missing authentication')))) {
+            // Redirect user to settings to re-authenticate
+            window.location.href = 'settings.html';
+            return;
+        }
         if (processCell) processCell.textContent = 'Error';
         if (progressCell) progressCell.textContent = 'Error';
         if (qaCell) qaCell.textContent = 'Error';
@@ -464,8 +548,12 @@ async function viewHistory(id, ref, subject, createdDate) {
         const history = await fetchHistory(id);
         const metrics = calculateStoryMetrics({ created_date: createdDate }, history);
 
-        totalTimeValue.textContent = metrics.leadTime ? formatDuration(metrics.leadTime) : 'N/A';
-        const currentCycle = metrics.cycleTime + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
+        // Show Process, In-Progress and QA times in the history panel
+        const currentProcess = (metrics.inProgressTime || 0) + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0)
+            + (metrics.qaTime || 0) + (metrics.lastQaStart ? (new Date() - metrics.lastQaStart) : 0)
+            + (metrics.extraTime || 0) + (metrics.lastExtraStart ? (new Date() - metrics.lastExtraStart) : 0);
+        totalTimeValue.textContent = currentProcess > 0 ? formatDuration(currentProcess) : 'N/A';
+        const currentCycle = (metrics.inProgressTime || 0) + (metrics.lastInProgressStart ? (new Date() - metrics.lastInProgressStart) : 0);
         timeInProgressValue.textContent = currentCycle > 0 ? formatDuration(currentCycle) : '0h';
         historyMetrics.classList.remove('hidden');
 
@@ -488,7 +576,13 @@ async function viewHistory(id, ref, subject, createdDate) {
         historyBody.innerHTML = rows.length > 0 ? rows.join('') : '<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--text-secondary);">No se encontro historial relevante.</td></tr>';
         historyView.scrollIntoView({ behavior: 'smooth' });
     } catch (err) {
-        historyBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--danger);">Error al cargar historial.</td></tr>';
+        console.error('Error loading history', err);
+        if (err && (err.message && (err.message.includes('Unauthorized') || err.message.includes('Missing authentication')))) {
+            // Redirect to settings for re-authentication
+            window.location.href = 'settings.html';
+            return;
+        }
+        historyBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 3rem; color: var(--danger);">Error al cargar historial: ${err.message || 'Unknown'}</td></tr>`;
     }
 }
 

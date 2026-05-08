@@ -36,7 +36,25 @@ async function fetchData() {
 }
 
 async function fetchHistory(id) {
-    const response = await fetch(`/api/history/${id}`);
+    const token = sessionStorage.getItem('auth_token');
+    const userId = sessionStorage.getItem('user_id');
+    if (!token || !userId) {
+        throw new Error('Missing authentication. Please login.');
+    }
+
+    const response = await fetch(`/api/history/${id}`, {
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'X-User-Id': userId
+        }
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) throw new Error('Unauthorized. Please login.');
+        const errBody = await response.text().catch(() => '');
+        throw new Error(`Failed to fetch history: ${response.status} ${errBody}`);
+    }
+
     return await response.json();
 }
 
